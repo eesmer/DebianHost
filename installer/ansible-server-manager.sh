@@ -26,7 +26,7 @@ echo "   |----------------------------|"
 }
 
 function add_host(){
-echo "Host Ekleme-Cikartma islemi"
+echo "add/remove machine"
 ln -sf /etc/ansible/hosts /usr/local/hosts
 vim /usr/local/reman/hosts
 pause

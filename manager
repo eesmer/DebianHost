@@ -130,7 +130,8 @@ case $CHOICE in
 	cp /usr/local/debianhost/installer/ansible-server-manager.sh /var/lib/lxc/$CONTAINER_NAME/rootfs/usr/local/debianhost/manager
 
 	lxc-start -n $CONTAINER_NAME -d
-	lxc-wait -n $CONTAINER_NAME -s RUNNING && sleep 3
+	lxc-wait -n $CONTAINER_NAME -s RUNNING && sleep 5
+	lxc-attach -n $CONTAINER_NAME -- bash -c "DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get -y upgrade"
 	lxc-attach -n $CONTAINER_NAME -- bash -c "bash /usr/local/debianhost/ansible-server-install.sh"
 ;;
 *)
