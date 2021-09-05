@@ -15,6 +15,8 @@ if ! [ -x "$(command -v ack)" ]; then
 fi
 
 REGEX="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+IPADDR=$(ip r |grep "link src" |cut -d " " -f9)
+
 
 function pause(){
 local message="$@"
@@ -24,21 +26,23 @@ read -p "$message" readEnterKey
 
 function show_menu(){
 date
-echo "   |--------------------------------------------|"
-echo "   | :::.. DebianHost ..:::                     |"
-echo "   |--------------------------------------------|"
-echo "   | # CREATE MENU       | # MANAGE MENU        |"
-echo "   | ------------------- | -------------------  |"
-echo "   | 1. Create Container | 20. Container List   |"
-echo "   | 2. Delete Container | -------------------  |"
-echo "   | ------------------- | 21. Start Container  |"
-echo "   | # HOST MENU         | 22. Reboot Container |"
-echo "   | ------------------- | 23. Stop Container   |"
-echo "   | 50. Set static ip   | -------------------  |"
-echo "   | 51. Show ip         | 30. Manage Container |"
-echo "   |--------------------------------------------|"
-echo "   | 99.Exit                                    |"
-echo "   |--------------------------------------------|"
+echo "   |----------------------------------------------|"
+echo "   |:::.. DebianHost ..:::                        |"
+echo "   |----------------------------------------------|"
+echo "   | # CREATE MENU       | # MANAGE MENU          |"
+echo "   | ------------------- | ---------------------  |"
+echo "   | 1. Create Container | 21. Start Container    |" 
+echo "   | 2. Delete Container | 22. Reboot Container   |"
+echo "   |                     | 23. Stop Container     |"
+echo "   |                     |----------------------- |"
+echo "   |                     | 30. Container List     |"
+echo "   |                     | 40. Use Container      |"
+echo "   |----------------------------------------------|"
+echo "   | 50.Set static ip                             |"
+echo "   | 99.Exit                                      |"
+echo "   |----------------------------------------------|"
+echo "IP Address: $IPADDR"
+echo ""
 }
 
 function list_container(){
@@ -122,7 +126,6 @@ CHOICE=$(whiptail --title "select the service to install" --radiolist "Choose:" 
 "install ansible server" "" "ansible-server" 3>&1 1>&2 2>&3)
 case $CHOICE in
 "install apache server")
-	cp /usr/local/debianhost/installer/$CHOICE-install.sh /var/lib/lxc/$CONTAINER_NAME/rootfs/root/
 ;;
 "install ansible server")
 	mkdir -p /var/lib/lxc/$CONTAINER_NAME/rootfs/usr/local/debianhost
@@ -208,6 +211,11 @@ fi
 pause
 }
 
+function show_ip(){
+ip r
+pause
+}
+
 function read_input(){
 local c
 read -p "You can choose from the menu numbers " c
@@ -216,6 +224,7 @@ case $c in
 20)	container_list ;;
 21)	start_container ;;
 50)	set_static_ip ;;
+51)	show_ip ;;
 99)	exit 0 ;;
 *)	
 echo "Please select from the menu numbers"
