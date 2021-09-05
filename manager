@@ -1,0 +1,233 @@
+#!/bin/bash
+#buildnumber:30082021
+
+if ! [ -x "$(command -v whiptail)" ]; then
+	apt-get -y install whiptail
+fi
+if ! [ -x "$(command -v wget)" ]; then
+	apt-get -y install wget
+fi
+if ! [ -x "$(command -v ifconfig)" ]; then
+	apt-get -y install net-tools
+fi
+if ! [ -x "$(command -v ack)" ]; then
+	apt-get -y install ack-grep
+fi
+
+REGEX="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+
+function pause(){
+local message="$@"
+[ -z $message ] && message="Press Enter to continue"
+read -p "$message" readEnterKey
+}
+
+function show_menu(){
+date
+echo "   |--------------------------------------------|"
+echo "   | :::.. DebianHost ..:::                     |"
+echo "   |--------------------------------------------|"
+echo "   | # CREATE MENU       | # MANAGE MENU        |"
+echo "   | ------------------- | -------------------  |"
+echo "   | 1. Create Container | 20. Container List   |"
+echo "   | 2. Delete Container | -------------------  |"
+echo "   | ------------------- | 21. Start Container  |"
+echo "   | # HOST MENU         | 22. Reboot Container |"
+echo "   | ------------------- | 23. Stop Container   |"
+echo "   | 50. Set static ip   | -------------------  |"
+echo "   | 51. Show ip         | 30. Manage Container |"
+echo "   |--------------------------------------------|"
+echo "   | 99.Exit                                    |"
+echo "   |--------------------------------------------|"
+}
+
+function list_container(){
+ls -gG /var/lib/lxc > /tmp/container_list.txt
+sed -i '1d' /tmp/container_list.txt
+sed -i 's/^...............................//' /tmp/container_list.txt
+
+let i=0
+W=()
+while read -r line; do
+let i=$i+1
+W+=($i "$line")
+done < <( cat /tmp/container_list.txt)
+IND=$(whiptail --title "Container List" --menu "Chose one" 24 50 17 "${W[@]}" 3>&2 2>&1 1>&3)
+CHOOSE_CONTAINER=$(sed -n $IND\p /tmp/container_list.txt)
+pause
+}
+
+function container_list(){
+echo ""
+echo ":: Container List ::"
+echo "-----------------------------------"
+lxc-ls -f
+pause
+}
+
+function start_container(){
+list_container
+	lxc-start -n $CHOOSE_CONTAINER
+pause
+}
+
+function create_container(){
+echo ""
+echo ":: Create Container ::"
+echo "-----------------------------------"
+CONTAINER_NAME=$(whiptail --title "Container Name" --inputbox "Please enter the Container Name" 10 60  3>&1 1>&2 2>&3)
+CONTAINER_IP=$(whiptail --title "Container IP Address" --inputbox "Please enter the Container IP Address" 10 60  3>&1 1>&2 2>&3)
+CONTAINER_NETMASK=$(whiptail --title "Container Netmask" --inputbox "Please enter the Container Netmask" 10 60  3>&1 1>&2 2>&3)
+CONTAINER_GATEWAY=$(whiptail --title "Container Gateway" --inputbox "Please enter the Container Gateway" 10 60  3>&1 1>&2 2>&3)
+CONTAINER_DNS=$(whiptail --title "Container DNS" --inputbox "Please enter the Container DNS" 10 60  3>&1 1>&2 2>&3)
+
+IPCHECK=INCORRECT
+echo "$CONTAINER_IP" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && IPCHECK=CORRECT
+rm /tmp/check_ip
+
+NETMASKCHECK=INCORRECT
+echo "$CONTAINER_NETMASK" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && NETMASKCHECK=CORRECT
+
+GWCHECK=INCORRECT
+echo "$CONTAINER_GATEWAY" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && GWCHECK=CORRECT
+
+DNSCHECK=INCORRECT
+echo "$CONTAINER_DNS" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && DNSCHECK=CORRECT
+
+if [ $IPCHECK = CORRECT ] && [ $NETMASKCHECK = CORRECT ] && [ $GWCHECK = CORRECT ] && [ $DNSCHECK = CORRECT ]; then
+lxc-copy -n template-container -N $CONTAINER_NAME -p /var/lib/lxc/
+
+cat > /var/lib/lxc/$CONTAINER_NAME/rootfs/etc/network/interfaces.d/debianhost_containernw << EOF
+auto eth0
+iface eth0 inet static
+address $CONTAINER_IP
+netmask $CONTAINER_NETMASK
+gateway $CONTAINER_GATEWAY
+EOF
+chmod 644 /var/lib/lxc/$CONTAINER_NAME/rootfs/etc/network/interfaces.d/debianhost_containernw
+sed -i /eth0/d /var/lib/lxc/$CONTAINER_NAME/rootfs/etc/network/interfaces
+echo "nameserver $CONTAINER_DNS" > /var/lib/lxc/$CONTAINER_NAME/rootfs/etc/resolv.conf
+
+cat > /var/lib/lxc/$CONTAINER_NAME/rootfs/etc/apt/sources.list << EOF
+deb http://deb.debian.org/debian buster main non-free contrib
+deb-src http://deb.debian.org/debian buster main non-free contrib
+deb http://deb.debian.org/debian buster-updates main non-free contrib
+deb-src http://deb.debian.org/debian buster-updates main non-free contrib
+deb http://security.debian.org/ buster/updates main contrib non-free
+deb-src http://security.debian.org/ buster/updates main contrib non-free
+EOF
+
+CHOICE=$(whiptail --title "select the service to install" --radiolist "Choose:" 15 40 6 \
+"install apache server" "" "apache-server" \
+"install ansible server" "" "ansible-server" 3>&1 1>&2 2>&3)
+case $CHOICE in
+"install apache server")
+	cp /usr/local/debianhost/installer/$CHOICE-install.sh /var/lib/lxc/$CONTAINER_NAME/rootfs/root/
+;;
+"install ansible server")
+	mkdir -p /var/lib/lxc/$CONTAINER_NAME/rootfs/usr/local/debianhost
+	cp /usr/local/debianhost/installer/ansible-server-install.sh /var/lib/lxc/$CONTAINER_NAME/rootfs/usr/local/debianhost/
+	cp /usr/local/debianhost/installer/ansible-server-manager.sh /var/lib/lxc/$CONTAINER_NAME/rootfs/usr/local/debianhost/manager
+
+	lxc-start -n $CONTAINER_NAME -d
+	lxc-wait -n $CONTAINER_NAME -s RUNNING && sleep 3
+	lxc-attach -n $CONTAINER_NAME -- bash -c "bash /usr/local/debianhost/ansible-server-install.sh"
+;;
+*)
+;;
+esac
+
+else
+	whiptail --title "Container Creator" --msgbox "Please enter addresses in the suitable format" 10 60  3>&1 1>&2 2>&3
+
+fi
+pause
+}
+
+function set_static_ip(){
+ip link |grep pfifo_fast |cut -d':' -f2 |cut -d' ' -f2 > /tmp/interface-list
+let i=0
+W=()
+while read -r line; do
+	let i=$i+1
+	W+=($i "$line")
+done < <( cat /tmp/interface-list)
+IND=$(whiptail --title "Network Adapter Interface List" --menu "Chose one" 24 50 17 "${W[@]}" 3>&2 2>&1 1>&3)
+INTERFACE=$(sed -n $IND\p /tmp/interface-list)
+
+REGEX="\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+
+IPADDRESS=$(whiptail --title "IP Address" --inputbox "Please enter the IP Address for Host Machine" 10 60  3>&1 1>&2 2>&3)
+IPCHECK=INCORRECT
+echo "$IPADDRESS" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && IPCHECK=CORRECT
+rm /tmp/check_ip
+
+NETMASK=$(whiptail --title "Netmask" --inputbox "Please enter the Netmask for Host Machine IP Address" 10 60  3>&1 1>&2 2>&3)
+NETMASKCHECK=INCORRECT
+echo "$NETMASK" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && NETMASKCHECK=CORRECT
+rm /tmp/check_ip
+
+GATEWAY=$(whiptail --title "Gateway" --inputbox "Please enter the Gateway for Host Machine" 10 60  3>&1 1>&2 2>&3)
+GWCHECK=INCORRECT
+echo "$GATEWAY" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && GWCHECK=CORRECT
+rm /tmp/check_ip
+
+DNS=$(whiptail --title "DNS" --inputbox "Please enter the DNS for Host Machine" 10 60  3>&1 1>&2 2>&3)
+DNSCHECK=INCORRECT
+echo "$DNS" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_ip > /dev/null && DNSCHECK=CORRECT
+rm /tmp/check_ip
+
+if [ $IPCHECK = CORRECT ] && [ $NETMASKCHECK = CORRECT ] && [ $GWCHECK = CORRECT ] && [ $DNSCHECK = CORRECT ];then
+#ifconfig $INTERFACE down && sleep 1
+
+cat > /etc/network/interfaces.d/debianhostnw << EOF
+auto br0
+iface br0 inet static
+address $IPADDRESS
+netmask $NETMASK
+gateway $GATEWAY
+bridge_ports $INTERFACE
+bridge_stp on
+bridge_fd 0
+bridge_maxwait 0
+EOF
+
+chmod 644 /etc/network/interfaces.d/debianhostnw
+sed -i /$INTERFACE/d /etc/network/interfaces
+ifconfig $INTERFACE up
+echo "nameserver $DNS" > /etc/resolv.conf
+
+	whiptail --title "Set static IP" --msgbox "The machine will be restarted for the use of the $IPADDRESS IP Address" 10 60  3>&1 1>&2 2>&3
+	reboot
+
+else
+	whiptail --title "Set static IP" --msgbox "Please enter addresses in the suitable format" 10 60  3>&1 1>&2 2>&3
+
+fi
+pause
+}
+
+function read_input(){
+local c
+read -p "You can choose from the menu numbers " c
+case $c in
+1)	create_container ;;
+20)	container_list ;;
+21)	start_container ;;
+50)	set_static_ip ;;
+99)	exit 0 ;;
+*)	
+echo "Please select from the menu numbers"
+pause
+esac
+}
+
+# CTRL+C, CTRL+Z
+trap '' SIGINT SIGQUIT SIGTSTP
+
+while true
+do
+clear
+show_menu
+read_input
+done
