@@ -134,7 +134,8 @@ case $CHOICE in
 
 	lxc-start -n $CONTAINER_NAME -d
 	lxc-wait -n $CONTAINER_NAME -s RUNNING && sleep 5
-	lxc-attach -n $CONTAINER_NAME -- bash -c "DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get -y upgrade"
+	lxc-attach -n $CONTAINER_NAME -- bash -c "set -e && echo $CONTAINER_NAME > /etc/hostname && sed -i 's/\(127.0.1.1\s*\).*$/\1$CONTAINER_NAME/' /etc/hosts && hostname $CONTAINER_NAME"
+	lxc-attach -n $CONTAINER_NAME -- bash -c "DEBIAN_FRONTEND=noninteractive && apt-get -y --allow-releaseinfo-change update && apt-get -y dist-upgrade"
 	lxc-attach -n $CONTAINER_NAME -- bash -c "bash /usr/local/debianhost/ansible-server-install.sh"
 ;;
 *)
