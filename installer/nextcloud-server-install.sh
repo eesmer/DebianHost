@@ -1,6 +1,7 @@
 #!/bin/bash
 
 export DEBIAN_FRONTEND=noninteractive
+apt-get -y reinstall hostname
 apt-get -y install php php-gd php-curl php-zip php-xml php-mbstring
 apt-get -y install php-intl php-bcmath php-gmp php-imagick imagemagick php-bz2
 apt-get -y install apache2 libapache2-mod-php
