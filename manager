@@ -23,21 +23,23 @@ read -p "$message" readEnterKey
 
 function show_menu(){
 date
-echo "   |--------------------------------------------|"
-echo "   | :::.. DebianHost ..:::                     |"
-echo "   |--------------------------------------------|"
-echo "   | # CREATE MENU       | # MANAGE MENU        |"
-echo "   | ------------------- | -------------------  |"
-echo "   | 1. Create Container | 20. Container List   |"
-echo "   | 2. Delete Container | -------------------  |"
-echo "   | ------------------- | 21. Start Container  |"
-echo "   | # HOST MENU         | 22. Reboot Container |"
-echo "   | ------------------- | 23. Stop Container   |"
-echo "   | 50. Set static ip   | -------------------  |"
-echo "   | 51. Show ip         | 30. Manage Container |"
-echo "   |--------------------------------------------|"
-echo "   | 99.Exit                                    |"
-echo "   |--------------------------------------------|"
+echo "   |---------------------------------------------------------------------|"
+echo "   | :::.. DebianHost ..:::                                              |"
+echo "   |---------------------------------------------------------------------|"
+echo "   | # CONTAINER MENU #                                                  |"
+echo "   | --------------------------------------------------------------------|"
+echo "   | 1.  Create Container  | 10. Container List   | 20. Manage Container |"
+echo "   | 2.  Delete Container  | 11. Start Container  |                      |"
+echo "   |                       | 12. Reboot Container |                      |"
+echo "   |                       | 13. Stop Container   |                      |"
+echo "   |---------------------------------------------------------------------|"
+echo "   | # HOST MENU #                                                       |"
+echo "   |---------------------------------------------------------------------|"
+echo "   | 30. Set static ip                                                   |"
+echo "   | 31. Show ip                                                         |"
+echo "   |---------------------------------------------------------------------|"
+echo "   | 99.Exit                                                             |"
+echo "   |---------------------------------------------------------------------|"
 }
 
 function list_container(){
@@ -53,6 +55,7 @@ W+=($i "$line")
 done < <( cat /tmp/container_list.txt)
 IND=$(whiptail --title "Container List" --menu "Chose one" 24 50 17 "${W[@]}" 3>&2 2>&1 1>&3)
 CHOOSE_CONTAINER=$(sed -n $IND\p /tmp/container_list.txt)
+#pause
 }
 
 function container_list(){
@@ -71,7 +74,8 @@ pause
 
 function manage_container(){
 list_container
-        lxc-attach -n $CHOOSE_CONTAINER -- bash -c "bash /usr/local/debianhost/manager"
+	lxc-attach -n $CHOOSE_CONTAINER -- bash -c "bash /usr/local/debianhost/manager"
+
 pause
 }
 
@@ -133,6 +137,7 @@ case $CHOICE in
 	lxc-start -n $CONTAINER_NAME -d
 	lxc-wait -n $CONTAINER_NAME -s RUNNING && sleep 3
 	lxc-attach -n $CONTAINER_NAME -- bash -c "set -e && echo $CONTAINER_NAME > /etc/hostname && sed -i 's/\(127.0.1.1\s*\).*$/\1$CONTAINER_NAME/' /etc/hosts && hostname $CONTAINER_NAME"
+	lxc-attach -n $CONTAINER_NAME -- bash -c "apt-get update && apt-get -y full-upgrade"
 	lxc-attach -n $CONTAINER_NAME -- bash -c "bash /usr/local/debianhost/nextcloud-server-install.sh"
 ;;
 "install ansible server")
@@ -143,7 +148,8 @@ case $CHOICE in
 	lxc-start -n $CONTAINER_NAME -d
 	lxc-wait -n $CONTAINER_NAME -s RUNNING && sleep 3
 	lxc-attach -n $CONTAINER_NAME -- bash -c "set -e && echo $CONTAINER_NAME > /etc/hostname && sed -i 's/\(127.0.1.1\s*\).*$/\1$CONTAINER_NAME/' /etc/hosts && hostname $CONTAINER_NAME"
-	sleep 5
+	lxc-attach -n $MACH -- bash -c "set -e && export DEBIAN_FRONTEND=noninteractive && apt-get -dy reinstall hostname"
+	lxc-attach -n $CONTAINER_NAME -- bash -c "apt-get update && apt-get -y full-upgrade"
 	lxc-attach -n $CONTAINER_NAME -- bash -c "bash /usr/local/debianhost/ansible-server-install.sh"
 ;;
 *)
@@ -225,10 +231,10 @@ local c
 read -p "You can choose from the menu numbers " c
 case $c in
 1)	create_container ;;
-20)	container_list ;;
-21)	start_container ;;
-30)	manage_container ;;
-50)	set_static_ip ;;
+10)	container_list ;;
+11)	start_container ;;
+20)	manage_container ;;
+30)	set_static_ip ;;
 99)	exit 0 ;;
 *)	
 echo "Please select from the menu numbers"

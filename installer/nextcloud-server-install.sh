@@ -1,7 +1,12 @@
 #!/bin/bash
 
+#----------------------------------------------------------------------
+# DebianHost nextcloud-server-installer
+# This setup has been tested with "Debian 10 and PHP version 7.3"
+#----------------------------------------------------------------------
+
 export DEBIAN_FRONTEND=noninteractive
-apt-get -y reinstall hostname
+apt-get update && apt-get -y full-upgrade
 apt-get -y install php php-gd php-curl php-zip php-xml php-mbstring
 apt-get -y install php-intl php-bcmath php-gmp php-imagick imagemagick php-bz2
 apt-get -y install apache2 libapache2-mod-php
@@ -9,27 +14,12 @@ apt-get -y install mariadb-server php-mysql
 apt-get -y install wget zip
 apt-get -y install pwgen
 apt-get -y install whiptail
+apt-get -y install sudo
 
-# This setup has been tested with Debian 10 and PHP version 7.3
-DEBIAN_VER=10
-PHP_VER=7.3
+PHP_VER=$(apt-cache search php |grep opcache |cut -d "-" -f1 |cut -d "p" -f3)
 NC_VER=22.1.1
 
-PHP_CHECK=$(apt-cache search php |grep $PHP_VER)
-DEBIAN_CHECK=$(cat /etc/debian_version |cut -d "." -f1)
-
-if [ ! $DEBIAN_CHECK = $DEBIAN_VER ]; then
-    whiptail --title "Installation Error" --msgbox "The version of the Debian is not suitable for installation." 10 60  3>&1 1>&2 2>&3;
-exit 1
-fi
-
-if [ -z "$PHP_CHECK" ]; then
-    whiptail --title "Installation Error" --msgbox "The version of the PHP is not suitable for installation." 10 60  3>&1 1>&2 2>&3; 
-exit 1
-fi
-
 wget https://download.nextcloud.com/server/releases/nextcloud-$NC_VER.zip -O /tmp/nextcloud-$NC_VER.zip
-
 cd /var/www/html
 unzip /tmp/nextcloud-$NC_VER.zip
 chown -R www-data:www-data nextcloud
@@ -91,16 +81,32 @@ cp /etc/apache2/sites-available/000-default.conf /etc/apache2/sites-enabled/
 a2enmod rewrite && a2enmod headers && a2enmod env && a2enmod dir && a2enmod mime
 
 #-----------------
-# NEXTCLOUD TUNING
+# TUNING
 #-----------------
-sed -i 's/^memory_limit = 128M/memory_limit = 1024M ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
-sed -i 's/^upload_max_filesize = 2M/upload_max_filesize = 1024M ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
-sed -i 's/^post_max_size = 8M/post_max_size = 512M ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
+touch /etc/php/$PHP_VER/mods-available/php.ini
+chmod 644 /etc/php/$PHP_VER/mods-available/php.ini
+ln -s /etc/php/$PHP_VER/mods-available/php.ini /etc/php/$PHP_VER/apache2/conf.d/10-php.ini
 
-sed -i 's/^;opcache.enable=1/opcache.enable=1 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
-sed -i 's/^;opcache.interned_strings_buffer=8/opcache.interned_strings_buffer=8 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
-sed -i 's/^;opcache.max_accelerated_files=10000/opcache.max_accelerated_files=10000 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
-sed -i 's/^;opcache.memory_consumption=128/opcache.memory_consumption=128 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
-sed -i 's/^;opcache.revalidate_freq=2/opcache.revalidate_freq=2 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
+echo "memory_limit = 512M" >> /etc/php/$PHP_VER/mods-available/php.ini
+echo "upload_max_filesize = 256M" >> /etc/php/$PHP_VER/mods-available/php.ini
+echo "post_max_size = 512M" >> /etc/php/$PHP_VER/mods-available/php.ini
 
 systemctl restart apache2
+
+#-----------------
+# UPGRADE
+#-----------------
+sudo -u www-data php$PHP_VER /var/www/html/nextcloud/updater/updater.phar --no-interaction
+systemctl reload apache2
+
+echo "**********************************************************************"
+echo "* DebianHost nextcloud-server-installer,                             *"
+echo "* has completed the installation. Everything seems fine now.         *"
+echo "* You can use the server from the manager screen.                    *"
+echo "**********************************************************************"
+
+#sed -i 's/^;opcache.enable=1/opcache.enable=1 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
+#sed -i 's/^;opcache.interned_strings_buffer=8/opcache.interned_strings_buffer=8 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
+#sed -i 's/^;opcache.max_accelerated_files=10000/opcache.max_accelerated_files=10000 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
+#sed -i 's/^;opcache.memory_consumption=128/opcache.memory_consumption=128 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini
+#sed -i 's/^;opcache.revalidate_freq=2/opcache.revalidate_freq=2 ; debianhost edited/' /etc/php/$PHP_VER/apache2/php.ini

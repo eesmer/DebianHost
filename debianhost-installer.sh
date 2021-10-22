@@ -1,4 +1,6 @@
 #!/bin/bash
+
+export DEBIAN_FRONTEND=noninteractive
 apt-get -y install vim tmux htop
 apt-get -y install openssh-server
 apt-get -y install curl wget ack
@@ -34,5 +36,3 @@ lxc.net.0.name = eth0
 lxc.net.0.flags = up
 EOF
 chmod 640 /var/lib/lxc/template-container/config
-
-cp /usr/local/debianhost/manager /usr/local/sbin/
