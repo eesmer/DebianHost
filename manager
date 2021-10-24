@@ -30,8 +30,7 @@ echo "   | # CONTAINER MENU #                                                  |
 echo "   | --------------------------------------------------------------------|"
 echo "   | 1.  Create Container  | 10. Container List   | 20. Manage Container |"
 echo "   | 2.  Delete Container  | 11. Start Container  |                      |"
-echo "   |                       | 12. Reboot Container |                      |"
-echo "   |                       | 13. Stop Container   |                      |"
+echo "   |                       | 12. Stop Container   |                      |"
 echo "   |---------------------------------------------------------------------|"
 echo "   | # HOST MENU #                                                       |"
 echo "   |---------------------------------------------------------------------|"
@@ -68,14 +67,25 @@ pause
 
 function start_container(){
 list_container
+if [ ! -z "$CHOOSE_CONTAINER" ]; then
 	lxc-start -n $CHOOSE_CONTAINER
+fi
+pause
+}
+
+function stop_container(){
+list_container
+if [ ! -z "$CHOOSE_CONTAINER" ]; then
+	lxc-stop -n $CHOOSE_CONTAINER
+fi
 pause
 }
 
 function manage_container(){
 list_container
+if [ ! -z "$CHOOSE_CONTAINER" ]; then
 	lxc-attach -n $CHOOSE_CONTAINER -- bash -c "bash /usr/local/debianhost/manager"
-
+fi
 pause
 }
 
@@ -197,7 +207,6 @@ echo "$DNS" |egrep $REGEX |tee /tmp/check_ip > /dev/null && ack "." /tmp/check_i
 rm /tmp/check_ip
 
 if [ $IPCHECK = CORRECT ] && [ $NETMASKCHECK = CORRECT ] && [ $GWCHECK = CORRECT ] && [ $DNSCHECK = CORRECT ];then
-#ifconfig $INTERFACE down && sleep 1
 
 cat > /etc/network/interfaces.d/debianhostnw << EOF
 auto br0
@@ -233,6 +242,7 @@ case $c in
 1)	create_container ;;
 10)	container_list ;;
 11)	start_container ;;
+12)	stop_container ;;
 20)	manage_container ;;
 30)	set_static_ip ;;
 99)	exit 0 ;;
