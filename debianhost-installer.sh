@@ -14,6 +14,8 @@ git clone https://github.com/eesmer/DebianHost.git
 cp -R DebianHost /usr/local/debianhost/
 chown -R root:root /usr/local/debianhost
 chmod -R 755 /usr/local/debianhost
+cp /usr/local/debianhost/manager /usr/local/sbin/manager
+chmod +x /usr/local/sbin/manager
 
 lxc-create -n template-container -t download -P /var/lib/lxc/ -- -d debian -r buster -a amd64 --keyserver hkp://keyserver.ubuntu.com
 cat > /var/lib/lxc/template-container/config << EOF
