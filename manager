@@ -35,7 +35,7 @@ echo "   |                      | 14. Stop Container   |                      |"
 echo "   |--------------------------------------------------------------------|"
 echo "   | # HOST MENU #                                                      |"
 echo "   |--------------------------------------------------------------------|"
-echo "   | 30. Set static ip    | 40. Add New Disk                            |"
+echo "   | 30. Set static ip    | 40. Add Storage                             |"
 echo "   | 31. Show ip          | 41. Mount List                              |"
 echo "   |--------------------------------------------------------------------|"
 echo "   | 99.Exit                                                            |"
@@ -226,36 +226,52 @@ fi
 pause
 }
 
-function add_disk(){
-list_container
-if [ ! -d /media/$CHOOSE_CONTAINER ]; then
-	mkdir /media/$CHOOSE_CONTAINER
-	
-	fdisk -l |grep "Disk /dev" | cut -d ":" -f1 |cut -d " " -f2 > /tmp/disk_list.txt
-	let i=0
-	W=()
-	
-	while read -r line; do
-		let i=$i+1
-		W+=($i "$line")
-	done < <( cat /tmp/disk_list.txt)
-	IND=$(whiptail --title "Disk List" --menu "Chose one" 24 50 17 "${W[@]}" 3>&2 2>&1 1>&3)
-	CHOOSE_DISK=$(sed -n $IND\p /tmp/disk_list.txt)
-	
-	echo "n
-	p
-	
-	
-	
-	w
-	"|fdisk $CHOOSE_DISK;
-	sleep 2
-	PARTITION=$(fdisk -l $CHOOSE_DISK |grep "$CHOOSE_DISK"1 |cut -d " " -f1)
-	mkfs.ext4 $PARTITION
-	sleep 1
-	mount $PARTITION /media/$CHOOSE_CONTAINER
-fi
-whiptail --title "Add Disk Error" --msgbox "The container's disk directory already exists." 10 60  3>&1 1>&2 2>&3
+function add_storage(){
+CHOICE=$(whiptail --title "select the source" --radiolist "Choose:" 15 40 6 \
+	"Add Disk" "" "add-disk" 3>&1 1>&2 2>&3)
+case $CHOICE in
+	"Add Disk")
+		list_container
+		if [ ! -z "$CHOICE" ]; then
+			if [ ! -d /media/$CHOOSE_CONTAINER ]; then
+				mkdir /media/$CHOOSE_CONTAINER
+				fdisk -l |grep "Disk /dev" | cut -d ":" -f1 |cut -d " " -f2 > /tmp/disk_list.txt
+				let i=0
+				W=()
+				
+				while read -r line; do
+					let i=$i+1
+					W+=($i "$line")
+				done < <( cat /tmp/disk_list.txt)
+				IND=$(whiptail --title "Disk List" --menu "Chose one" 24 50 17 "${W[@]}" 3>&2 2>&1 1>&3)
+				CHOOSE_DISK=$(sed -n $IND\p /tmp/disk_list.txt)
+				CONTINUE=TRUE
+				mount |grep $CHOOSE_DISK && CONTINUE=FALSE
+				if [ $CONTINUE = TRUE ]; then
+					echo "n
+					p
+					
+
+
+					w
+					"|fdisk $CHOOSE_DISK;
+					sleep 2
+					PARTITION=$(fdisk -l $CHOOSE_DISK |grep "$CHOOSE_DISK"1 |cut -d " " -f1)
+					mkfs.ext4 $PARTITION
+					sleep 1
+					mount $PARTITION /media/$CHOOSE_CONTAINER
+					rm /tmp/disk_list.txt
+				else
+					whiptail --title "Add Disk Error" --msgbox "$CHOOSE_DISK already used" 10 60  3>&1 1>&2 2>&3
+				fi
+			else
+				whiptail --title "Add Disk Error" --msgbox "The container's disk directory already exists" 10 60  3>&1 1>&2 2>&3
+				fi
+		fi
+		;;
+	*)
+		;;
+esac
 pause
 }
 
@@ -273,7 +289,7 @@ case $c in
 12)	start_container ;;
 20)	manage_container ;;
 30)	set_static_ip ;;
-40)	add_disk ;;
+40)	add_storage ;;
 41)	mount_list ;;
 99)	exit 0 ;;
 *)	
