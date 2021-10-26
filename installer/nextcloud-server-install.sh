@@ -5,6 +5,9 @@
 # This setup has been tested with "Debian 10 and PHP version 7.3"
 #----------------------------------------------------------------------
 
+#------------------------------
+# install package
+#------------------------------
 export DEBIAN_FRONTEND=noninteractive
 apt-get update && apt-get -y full-upgrade
 apt-get -y install php php-gd php-curl php-zip php-xml php-mbstring
