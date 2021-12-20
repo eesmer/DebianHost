@@ -25,7 +25,8 @@ echo "   |                      | 23. Restart Service       |"
 echo "   |                      |---------------------------|"
 echo "   |                      | 29. Set Connection vars   |"
 echo "   |--------------------------------------------------|"
-echo "   | 50.Add Host                                      |"
+echo "   | 49. Host List                                    |"
+echo "   | 50. Add Host                                     |"
 echo "   |--------------------------------------------------|"
 echo "   | 99.Exit                                          |"
 echo "   |--------------------------------------------------|"
@@ -48,6 +49,7 @@ while read -r line; do
 done < <( cat /tmp/hosts.txt)
 IND=$(whiptail --title "Select Host" --menu "Chose one" 24 50 17 "${W[@]}" 3>&2 2>&1 1>&3)
 HOST=$(sed -n $IND\p /tmp/hosts.txt)
+echo $HOST
 }
 
 function ping_linux(){
@@ -219,6 +221,8 @@ case $c in
 21) install_msi ;;
 23) uninstall_msi ;;
 29) set_conn_vars ;;
+49) host_list ;;
+50) add_host ;;
 99) exit 0 ;;
 *)	
 echo "Selected menu not found!!"
